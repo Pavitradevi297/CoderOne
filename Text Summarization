@@ -1,0 +1,72 @@
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize, sent_tokenize
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
+from rouge_score import rouge_scorer
+
+import nltk
+nltk.download('punkt')
+nltk.download('stopwords')
+
+def nltk_summarize(text, num_sentences=3):
+    stop_words = set(stopwords.words("english"))
+    words = word_tokenize(text)
+
+    freq_table = {}
+    for word in words:
+        word = word.lower()
+        if word in stop_words:
+            continue
+        if word in freq_table:
+            freq_table[word] += 1
+        else:
+            freq_table[word] = 1
+
+    sentences = sent_tokenize(text)
+    sentence_value = {}
+    for sentence in sentences:
+        for word, freq in freq_table.items():
+            if word in sentence.lower():
+                if sentence in sentence_value:
+                    sentence_value[sentence] += freq
+                else:
+                    sentence_value[sentence] = freq
+
+    sorted_sentences = sorted(sentence_value, key=sentence_value.get, reverse=True)
+    summary = ' '.join(sorted_sentences[:num_sentences])
+    return summary
+
+def sumy_summarize(text, num_sentences=3):
+    parser = PlaintextParser.from_string(text, Tokenizer("english"))
+    summarizer = LsaSummarizer()
+    summary = summarizer(parser.document, num_sentences)
+    return ' '.join([str(sentence) for sentence in summary])
+
+def calculate_rouge(reference_summary, generated_summary):
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    scores = scorer.score(reference_summary, generated_summary)
+    return scores
+
+user_input = input("Please enter the text you want to summarize:\n")
+num_sentences = int(input("Enter the number of sentences for the summary:\n"))
+
+reference_summary = input("Please enter a reference summary for evaluation:\n")
+
+nltk_summary = nltk_summarize(user_input, num_sentences=num_sentences)
+print("\nNLTK Summary:")
+print(nltk_summary)
+
+
+nltk_rouge_scores = calculate_rouge(reference_summary, nltk_summary)
+print("\nNLTK ROUGE Scores:")
+print(nltk_rouge_scores)
+
+sumy_summary = sumy_summarize(user_input, num_sentences=num_sentences)
+print("\nSumy Summary:")
+print(sumy_summary)
+
+
+sumy_rouge_scores = calculate_rouge(reference_summary, sumy_summary)
+print("\nSumy ROUGE Scores:")
+print(sumy_rouge_scores)
