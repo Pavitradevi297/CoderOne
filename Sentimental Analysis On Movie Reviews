@@ -1,26 +1,45 @@
-!pip install vaderSentiment 
-!pip install SpeechRecognition
-from vanderSentiment.vanderSentiment import SentimentIntensityAnalyzer
-import speech_recognition as sr
-recognizer=sr.Recognizer()
-with sr.Microphone as source:
-    print('Clearing background noise...')
-    recognizer.adjust_for_ambient_noise(source,duration=1)
-    print('Waiting for your message...')
-    recordedaudio=recognizer.listen(source)
-    print('Done recording...')
+import nltk
+from nltk.corpus import movie_reviews
+import random
+import string
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+nltk.download('movie_reviews')
+documents = [(list(movie_reviews.words(fileid)), category)
+             for category in movie_reviews.categories()
+             for fileid in movie_reviews.fileids(category)]
+random.shuffle(documents)
 
-    try:
-        print('Printing message...')
-        text=recognizer.recognize_google(recordedaudio,language='en-US')
-        print('Your message:{}'.format(text))
-    except Exception as ex:
-        print(ex)
 
-    #Sentiment analysis
+def preprocess_text(text):
+    text = [word.lower() for word in text]
 
-    Sentence=[str(text)]
-    analyser=SentimentIntensityAnalyzer()
-    for i in Sentence:
-        v=analyser.polarity_scores(i)
-        print(v)
+    text = [word for word in text if word not in string.punctuation]
+
+    return ' '.join(text)
+
+
+data = [(preprocess_text(doc), category) for doc, category in documents]
+
+X, y = zip(*data)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+tfidf_vectorizer = TfidfVectorizer(max_features=5000)
+X_train_tfidf = tfidf_vectorizer.fit_transform(X_train)
+X_test_tfidf = tfidf_vectorizer.transform(X_test)
+
+
+log_reg_classifier = LogisticRegression(max_iter=100)
+log_reg_classifier.fit(X_train_tfidf, y_train)
+
+y_pred = log_reg_classifier.predict(X_test_tfidf)
+
+
+accuracy = accuracy_score(y_test, y_pred)
+report = classification_report(y_test, y_pred)
+
+print(f"Accuracy: {accuracy}")
+print(f"Classification Report:\n{report}")
